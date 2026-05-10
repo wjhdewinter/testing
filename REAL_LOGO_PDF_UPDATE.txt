@@ -1,0 +1,6 @@
+PDF logo update
+
+- Echte AWC logo geïntegreerd in PDF headers
+- Logo staat links van contactgegevens
+- Groter professioneel logo gebruikt
+- Backup: index-before-real-logo-pdf.html

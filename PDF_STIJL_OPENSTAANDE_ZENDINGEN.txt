@@ -1,0 +1,10 @@
+PDF stijl aangepast
+
+De PDF-export van de module Openstaande zendingen gebruikt nu dezelfde AWC-achtige opzet:
+- Donkere header
+- Oranje accent
+- Logo/herkenbare AWC header wanneer beschikbaar
+- Info-blok met datum/locatie/medewerker/aantal
+- Net gestileerde tabel
+- Footer met AWC en paginanummer
+- Backup: index-before-openstaande-zendingen-pdfstyle.html

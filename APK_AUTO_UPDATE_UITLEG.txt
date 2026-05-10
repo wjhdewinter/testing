@@ -1,0 +1,17 @@
+AUTO UPDATE APK SYSTEEM
+
+Deze downloadpagina zoekt automatisch de nieuwste APK in GitHub Releases van repo:
+wjhdewinter/testing-
+
+Wat je moet doen bij een nieuwe APK:
+1. Maak een nieuwe GitHub Release.
+2. Upload daar de APK als asset.
+3. De downloadpagina zoekt automatisch de nieuwste release en pakt de eerste .apk asset.
+
+Belangrijk:
+- De APK hoort in GitHub Releases, niet in GitHub Pages.
+- De knop Download Android app gebruikt automatisch de nieuwste release.
+- Als de automatische check niet lukt, gebruikt hij deze fallback:
+  https://github.com/wjhdewinter/testing-/releases/latest/download/AWC.Tool.v2.0.apk
+
+Upload de losse bestanden naar de root van repo testing-.

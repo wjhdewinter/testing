@@ -1,0 +1,8 @@
+Deze versie vervangt de actieve PDF-functies echt.
+
+Belangrijk:
+- Niet alleen helpers toegevoegd, maar actieve overrides onderaan de app.
+- Personeel, pallets, warehouse, machinecheck, orderweging, incident, schade, manco en openstaande zendingen gebruiken nu dezelfde PDF-engine.
+- Alles gebruikt witte AWC-header, echte logo, contactgegevens, oranje accent, info-blokken, tabellen, statusbadges en footer.
+- Tekstvakken lopen automatisch mee.
+- Backup: index-before-force-uniform-pdfs.html

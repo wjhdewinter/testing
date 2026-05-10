@@ -1,0 +1,9 @@
+{
+  "app": "AWC Tool App",
+  "version": "2.0",
+  "repo": "wjhdewinter/testing-",
+  "release": "latest",
+  "apkAssetHint": "AWC.Tool.v2.0.apk",
+  "apkLatestUrl": "https://github.com/wjhdewinter/testing-/releases/latest/download/AWC.Tool.v2.0.apk",
+  "downloadPage": "https://wjhdewinter.github.io/testing-/downloadpagina.html"
+}

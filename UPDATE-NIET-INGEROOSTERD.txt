@@ -1,0 +1,13 @@
+AWC update - Personeel status
+
+Toegevoegd in module Personeel:
+- Nieuwe status: Niet ingeroosterd
+- Engelse tekst: Not scheduled
+- Status telt apart mee in het overzicht
+- Wordt meegenomen in PDF, mail, WhatsApp en Excel-output
+- Niet ingeroosterd veroorzaakt geen 'ACTIE VEREIST' status zoals ziek/afwezig
+
+Gebruik:
+1. Open Personeel
+2. Kies bij een medewerker de status 'Niet ingeroosterd'
+3. Genereer PDF/mail/WhatsApp zoals normaal

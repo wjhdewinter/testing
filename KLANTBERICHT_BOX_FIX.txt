@@ -1,0 +1,8 @@
+Klantbericht PDF fix
+
+- Groene kaderhoogte loopt nu automatisch mee met de tekst
+- Lange klantberichten blijven netjes binnen het kader
+- Geen tekst meer buiten het groene vlak
+
+Backup:
+index-before-klantbericht-box-fix.html

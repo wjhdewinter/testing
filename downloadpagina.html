@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AWC Tool App</title>
+
+<style>
+:root{
+  --bg:#0b1220;
+  --card:#111827;
+  --card2:#0f172a;
+  --text:#ffffff;
+  --muted:#cbd5e1;
+  --orange:#f97316;
+  --blue:#38bdf8;
+  --green:#4ade80;
+  --border:#334155;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  font-family:Arial, Helvetica, sans-serif;
+  background:linear-gradient(135deg,#0b1220,#111827);
+  color:var(--text);
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+}
+
+.card{
+  width:100%;
+  max-width:620px;
+  background:linear-gradient(180deg,#111827,#0f172a);
+  border:1px solid rgba(255,255,255,0.08);
+  border-radius:28px;
+  box-shadow:0 24px 70px rgba(0,0,0,0.55);
+  padding:28px;
+  text-align:center;
+}
+
+.logo{
+  width:240px;
+  max-width:85%;
+  margin:0 auto 22px;
+  display:block;
+  filter:drop-shadow(0 0 12px rgba(255,255,255,0.18));
+}
+
+h1{
+  margin:8px 0;
+  font-size:34px;
+  line-height:1.15;
+}
+
+.subtitle{
+  color:var(--orange);
+  font-weight:800;
+  font-size:19px;
+  margin:10px 0 18px;
+}
+
+.lang-wrap{
+  margin:18px 0 24px;
+}
+
+select{
+  padding:13px 18px;
+  border-radius:18px;
+  font-size:18px;
+  border:3px solid #f59e0b;
+  background:white;
+  color:#111827;
+  min-width:260px;
+  max-width:100%;
+}
+
+.intro{
+  color:var(--muted);
+  font-size:18px;
+  line-height:1.7;
+  margin:20px auto 26px;
+  max-width:520px;
+}
+
+.btn{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  width:100%;
+  text-decoration:none;
+  padding:19px 18px;
+  border-radius:20px;
+  margin:14px 0;
+  font-weight:800;
+  font-size:20px;
+}
+
+.web{
+  background:var(--orange);
+  color:white;
+  box-shadow:0 10px 28px rgba(249,115,22,0.35);
+}
+
+.apk{
+  background:#1f2937;
+  color:var(--blue);
+  border:1px solid var(--border);
+}
+
+.features{
+  margin-top:26px;
+  text-align:left;
+  background:rgba(15,23,42,0.86);
+  border:1px solid rgba(255,255,255,0.08);
+  padding:18px;
+  border-radius:18px;
+  color:white;
+}
+
+.features h2{
+  margin:0 0 14px;
+  font-size:20px;
+  color:white;
+}
+
+.features div{
+  margin:11px 0;
+  font-size:17px;
+  line-height:1.4;
+}
+
+.note{
+  margin-top:20px;
+  background:#022c22;
+  color:var(--green);
+  border:1px solid rgba(74,222,128,0.25);
+  padding:15px;
+  border-radius:16px;
+  font-size:15px;
+  line-height:1.55;
+}
+
+.contact{
+  margin-top:24px;
+  font-size:14px;
+  color:#94a3b8;
+  line-height:1.75;
+}
+
+.footer{
+  margin-top:20px;
+  color:#64748b;
+  font-size:14px;
+}
+
+@media(max-width:520px){
+  .card{padding:22px 18px;border-radius:24px}
+  h1{font-size:30px}
+  .subtitle{font-size:18px}
+  .intro{font-size:17px}
+  .btn{font-size:18px}
+  .logo{width:220px}
+}
+</style>
+</head>
+
+<body>
+<main class="card">
+
+  <img class="logo" src="awc_logo_white_fixed.png" alt="Amsterdam Warehouse Company logo">
+
+  <h1 id="title">🚀 AWC Tool App</h1>
+  <div class="subtitle" id="subtitle"></div>
+
+  <div class="lang-wrap">
+    <select id="languageSelect" onchange="setLang(this.value)">
+      <option value="nl">🇳🇱 Nederlands</option>
+      <option value="en">🇬🇧 English</option>
+      <option value="uk">🇺🇦 Українська</option>
+      <option value="pl">🇵🇱 Polski</option>
+      <option value="hu">🇭🇺 Magyar</option>
+      <option value="bg">🇧🇬 Български</option>
+      <option value="ro">🇷🇴 Română</option>
+      <option value="fr">🇫🇷 Français</option>
+      <option value="de">🇩🇪 Deutsch</option>
+      <option value="es">🇪🇸 Español</option>
+    </select>
+  </div>
+
+  <p class="intro" id="intro"></p>
+
+  <a class="btn web" id="webBtn" href="https://wjhdewinter.github.io/testing/" target="_blank" rel="noopener"></a>
+
+  <a class="btn apk" id="apkBtn" href="https://github.com/wjhdewinter/testing/releases/latest/download/AWC.Tool.v2.0.apk" target="_blank" rel="noopener"></a>
+  <div class="note" id="apkStatus" style="display:none;margin-top:10px;"></div>
+
+  <section class="features">
+    <h2 id="featuresTitle"></h2>
+    <div id="featuresList"></div>
+  </section>
+
+  <div class="note" id="note"></div>
+
+  <div class="contact">
+    📍 Slego 1a, 1046 BM Amsterdam<br>
+    📍 Conakryweg 6, 1047 HS Amsterdam<br>
+    📧 info@amsterdamwarehouse.com<br>
+    📞 +31 (0)20-3081287
+  </div>
+
+  <div class="footer" id="footer"></div>
+
+</main>
+
+<script>
+const translations = {
+  nl: {
+    title:"🚀 AWC Tool App",
+    subtitle:"Slimmer werken in het warehouse",
+    intro:"Welkom bij de AWC Tool App. Met deze app voeren we warehouse checks, personeelsregistratie en BHV-controles sneller, overzichtelijker en professioneler uit.",
+    web:"🌐 Open webapp",
+    apk:"📦 Download Android app",
+    featuresTitle:"Functionaliteiten",
+    features:[
+      "✔ Warehouse checks per ruimte",
+      "✔ Personeelsregistratie aanwezig / afwezig",
+      "✔ BHV controles uitvoeren",
+      "✔ Foto’s toevoegen aan controles",
+      "✔ PDF genereren en verzenden",
+      "✔ Geschikt voor dagelijks gebruik"
+    ],
+    note:"Android installatie: download de APK, open het bestand en sta indien nodig ‘onbekende apps installeren’ toe.",
+    footer:"AWC Tool App – Snel. Overzichtelijk. Betrouwbaar."
+  },
+
+  en: {
+    title:"🚀 AWC Tool App",
+    subtitle:"Smarter warehouse work",
+    intro:"Welcome to the AWC Tool App. This app helps us perform warehouse checks, staff registration and safety checks faster, clearer and more professionally.",
+    web:"🌐 Open web app",
+    apk:"📦 Download Android app",
+    featuresTitle:"Features",
+    features:[
+      "✔ Warehouse checks per area",
+      "✔ Staff registration present / absent",
+      "✔ Safety (BHV) checks",
+      "✔ Add photos to inspections",
+      "✔ Generate and send PDFs",
+      "✔ Suitable for daily use"
+    ],
+    note:"Android installation: download the APK, open the file and allow installation from unknown sources if needed.",
+    footer:"AWC Tool App – Fast. Clear. Reliable."
+  },
+
+  uk: {
+    title:"🚀 AWC Tool App",
+    subtitle:"Розумніша робота на складі",
+    intro:"Ласкаво просимо до AWC Tool App. Цей додаток допомагає швидше, зрозуміліше та професійніше виконувати перевірки складу, реєстрацію персоналу та перевірки безпеки.",
+    web:"🌐 Відкрити вебдодаток",
+    apk:"📦 Завантажити Android додаток",
+    featuresTitle:"Функції",
+    features:[
+      "✔ Перевірки складу за зонами",
+      "✔ Реєстрація персоналу присутній / відсутній",
+      "✔ Перевірки безпеки (BHV)",
+      "✔ Додавання фото до перевірок",
+      "✔ Створення та надсилання PDF",
+      "✔ Підходить для щоденного використання"
+    ],
+    note:"Встановлення Android: завантажте APK, відкрийте файл і за потреби дозвольте встановлення з невідомих джерел.",
+    footer:"AWC Tool App – Швидко. Зрозуміло. Надійно."
+  },
+
+  pl: {
+    title:"🚀 AWC Tool App",
+    subtitle:"Sprawniejsza praca w magazynie",
+    intro:"Witamy w AWC Tool App. Aplikacja pomaga wykonywać kontrole magazynu, rejestrację personelu oraz kontrole bezpieczeństwa szybciej, przejrzyściej i profesjonalniej.",
+    web:"🌐 Otwórz aplikację web",
+    apk:"📦 Pobierz aplikację Android",
+    featuresTitle:"Funkcje",
+    features:[
+      "✔ Kontrole magazynu według obszaru",
+      "✔ Rejestracja personelu obecny / nieobecny",
+      "✔ Kontrole bezpieczeństwa (BHV)",
+      "✔ Dodawanie zdjęć do kontroli",
+      "✔ Generowanie i wysyłanie PDF",
+      "✔ Odpowiednia do codziennego użytku"
+    ],
+    note:"Instalacja Android: pobierz APK, otwórz plik i w razie potrzeby zezwól na instalację z nieznanych źródeł.",
+    footer:"AWC Tool App – Szybko. Przejrzyście. Niezawodnie."
+  },
+
+  hu: {
+    title:"🚀 AWC Tool App",
+    subtitle:"Okosabb raktári munka",
+    intro:"Üdvözöljük az AWC Tool App alkalmazásban. Az app segít a raktári ellenőrzések, a dolgozói nyilvántartás és a biztonsági ellenőrzések gyorsabb, átláthatóbb és professzionálisabb elvégzésében.",
+    web:"🌐 Webalkalmazás megnyitása",
+    apk:"📦 Android alkalmazás letöltése",
+    featuresTitle:"Funkciók",
+    features:[
+      "✔ Raktárellenőrzések területenként",
+      "✔ Dolgozói jelenlét / távollét rögzítése",
+      "✔ Biztonsági ellenőrzések (BHV)",
+      "✔ Fotók hozzáadása az ellenőrzésekhez",
+      "✔ PDF készítése és küldése",
+      "✔ Napi használatra alkalmas"
+    ],
+    note:"Android telepítés: töltse le az APK-t, nyissa meg a fájlt, és szükség esetén engedélyezze az ismeretlen forrásokat.",
+    footer:"AWC Tool App – Gyors. Átlátható. Megbízható."
+  },
+
+  bg: {
+    title:"🚀 AWC Tool App",
+    subtitle:"По-умна работа в склада",
+    intro:"Добре дошли в AWC Tool App. Приложението помага за по-бързо, по-ясно и по-професионално извършване на складови проверки, регистрация на персонал и проверки за безопасност.",
+    web:"🌐 Отвори уеб приложението",
+    apk:"📦 Изтегли Android приложението",
+    featuresTitle:"Функции",
+    features:[
+      "✔ Складови проверки по зона",
+      "✔ Регистрация на персонал присъства / отсъства",
+      "✔ Проверки за безопасност (BHV)",
+      "✔ Добавяне на снимки към проверките",
+      "✔ Генериране и изпращане на PDF",
+      "✔ Подходящо за ежедневна употреба"
+    ],
+    note:"Android инсталация: изтеглете APK, отворете файла и при нужда разрешете инсталиране от неизвестни източници.",
+    footer:"AWC Tool App – Бързо. Ясно. Надеждно."
+  },
+
+  ro: {
+    title:"🚀 AWC Tool App",
+    subtitle:"Muncă mai eficientă în depozit",
+    intro:"Bine ai venit în AWC Tool App. Aplicația ajută la efectuarea verificărilor de depozit, înregistrarea personalului și controalele de siguranță mai rapid, mai clar și mai profesionist.",
+    web:"🌐 Deschide aplicația web",
+    apk:"📦 Descarcă aplicația Android",
+    featuresTitle:"Funcționalități",
+    features:[
+      "✔ Verificări depozit pe zone",
+      "✔ Înregistrare personal prezent / absent",
+      "✔ Controale de siguranță (BHV)",
+      "✔ Adăugare fotografii la controale",
+      "✔ Generare și trimitere PDF",
+      "✔ Potrivită pentru utilizare zilnică"
+    ],
+    note:"Instalare Android: descarcă APK-ul, deschide fișierul și permite instalarea din surse necunoscute dacă este necesar.",
+    footer:"AWC Tool App – Rapid. Clar. Fiabil."
+  },
+
+  fr: {
+    title:"🚀 AWC Tool App",
+    subtitle:"Un travail d’entrepôt plus efficace",
+    intro:"Bienvenue dans AWC Tool App. Cette application nous aide à effectuer les contrôles d’entrepôt, l’enregistrement du personnel et les contrôles de sécurité plus rapidement, clairement et professionnellement.",
+    web:"🌐 Ouvrir l’application web",
+    apk:"📦 Télécharger l’application Android",
+    featuresTitle:"Fonctionnalités",
+    features:[
+      "✔ Contrôles d’entrepôt par zone",
+      "✔ Enregistrement du personnel présent / absent",
+      "✔ Contrôles de sécurité (BHV)",
+      "✔ Ajouter des photos aux contrôles",
+      "✔ Générer et envoyer des PDF",
+      "✔ Adapté à une utilisation quotidienne"
+    ],
+    note:"Installation Android : téléchargez l’APK, ouvrez le fichier et autorisez l’installation depuis des sources inconnues si nécessaire.",
+    footer:"AWC Tool App – Rapide. Clair. Fiable."
+  },
+
+  de: {
+    title:"🚀 AWC Tool App",
+    subtitle:"Effizienter arbeiten im Lager",
+    intro:"Willkommen bei der AWC Tool App. Diese App hilft uns, Lagerkontrollen, Personalerfassung und Sicherheitsprüfungen schneller, übersichtlicher und professioneller durchzuführen.",
+    web:"🌐 Web-App öffnen",
+    apk:"📦 Android App herunterladen",
+    featuresTitle:"Funktionen",
+    features:[
+      "✔ Lagerkontrollen pro Bereich",
+      "✔ Personal anwesend / abwesend erfassen",
+      "✔ Sicherheitsprüfungen (BHV)",
+      "✔ Fotos zu Kontrollen hinzufügen",
+      "✔ PDF erstellen und versenden",
+      "✔ Geeignet für den täglichen Gebrauch"
+    ],
+    note:"Android Installation: APK herunterladen, Datei öffnen und bei Bedarf Installation aus unbekannten Quellen erlauben.",
+    footer:"AWC Tool App – Schnell. Übersichtlich. Zuverlässig."
+  },
+
+  es: {
+    title:"🚀 AWC Tool App",
+    subtitle:"Trabajo de almacén más eficiente",
+    intro:"Bienvenido a AWC Tool App. Esta aplicación nos ayuda a realizar controles de almacén, registro de personal y controles de seguridad de forma más rápida, clara y profesional.",
+    web:"🌐 Abrir aplicación web",
+    apk:"📦 Descargar aplicación Android",
+    featuresTitle:"Funciones",
+    features:[
+      "✔ Controles de almacén por área",
+      "✔ Registro de personal presente / ausente",
+      "✔ Controles de seguridad (BHV)",
+      "✔ Añadir fotos a las inspecciones",
+      "✔ Generar y enviar PDF",
+      "✔ Apta para uso diario"
+    ],
+    note:"Instalación Android: descarga el APK, abre el archivo y permite instalación desde fuentes desconocidas si es necesario.",
+    footer:"AWC Tool App – Rápida. Clara. Fiable."
+  }
+};
+
+const APK_OWNER = "wjhdewinter";
+const APK_REPO = "testing-";
+const DEFAULT_APK_URL = "https://github.com/wjhdewinter/testing/releases/latest/download/AWC.Tool.v2.0.apk";
+const WEBAPP_URL = "https://wjhdewinter.github.io/testing/";
+
+function setLang(lang){
+  const t = translations[lang] || translations.nl;
+
+  document.documentElement.lang = lang;
+  document.getElementById("title").innerText = t.title;
+  document.getElementById("subtitle").innerText = t.subtitle;
+  document.getElementById("intro").innerText = t.intro;
+  document.getElementById("webBtn").innerText = t.web;
+  document.getElementById("apkBtn").innerText = t.apk;
+  document.getElementById("featuresTitle").innerText = t.featuresTitle;
+  document.getElementById("featuresList").innerHTML = t.features.map(item => "<div>" + item + "</div>").join("");
+  document.getElementById("note").innerText = t.note;
+  document.getElementById("footer").innerText = t.footer;
+  localStorage.setItem("awc_download_lang", lang);
+}
+
+function setApkStatus(text){
+  const el = document.getElementById("apkStatus");
+  if(!el) return;
+  el.style.display = text ? "block" : "none";
+  el.innerText = text || "";
+}
+
+async function loadLatestApk(){
+  const apkBtn = document.getElementById("apkBtn");
+  const webBtn = document.getElementById("webBtn");
+  webBtn.href = WEBAPP_URL;
+  apkBtn.href = DEFAULT_APK_URL;
+
+  try{
+    setApkStatus("APK-link controleren...");
+    const apiUrl = `https://api.github.com/repos/${APK_OWNER}/${APK_REPO}/releases/latest?cache=${Date.now()}`;
+    const res = await fetch(apiUrl, { cache: "no-store" });
+    if(!res.ok) throw new Error("Release niet gevonden");
+    const release = await res.json();
+    const asset = (release.assets || []).find(a => (a.name || "").toLowerCase().endsWith(".apk"));
+    if(!asset || !asset.browser_download_url) throw new Error("Geen APK asset gevonden");
+
+    apkBtn.href = asset.browser_download_url;
+    apkBtn.setAttribute("download", asset.name);
+    setApkStatus(`Nieuwste APK klaar: ${asset.name}`);
+  }catch(err){
+    apkBtn.href = DEFAULT_APK_URL;
+    setApkStatus("Automatische APK-check niet gelukt. De knop gebruikt de vaste latest-downloadlink.");
+  }
+}
+
+setLang(localStorage.getItem("awc_download_lang") || "nl");
+loadLatestApk();
+</script>
+</body>
+</html>

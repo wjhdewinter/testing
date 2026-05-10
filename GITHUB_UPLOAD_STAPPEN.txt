@@ -1,0 +1,35 @@
+AWC 100% FOOLPROOF UPLOAD
+
+Gebruik 1 repo: testing
+Live link: https://wjhdewinter.github.io/testing/
+
+BELANGRIJK:
+Upload NIET deze zip zelf naar GitHub.
+Pak de zip eerst uit en upload de losse bestanden direct in de root van repo testing.
+
+Je GitHub repo moet bovenaan minimaal dit tonen:
+- index.html
+- sw.js
+- manifest.json
+- version.json
+- VERSIE-CHECK.html
+- icon-192.png
+- icon-512.png
+- awc_logo.png
+
+Niet goed:
+- AWC-FOOLPROOF/index.html
+- AWC-V2-PRO.zip
+- alleen een ZIP-bestand in de repo
+
+Test na uploaden:
+1. Open: https://wjhdewinter.github.io/testing/VERSIE-CHECK.html?v=123
+2. Zie je: FOOLPROOF build 20260502-FOOLPROOF-V1
+3. Open daarna: https://wjhdewinter.github.io/testing/?v=123
+4. Druk in de app op Cache updaten
+
+APK:
+De APK moet exact deze URL openen:
+https://wjhdewinter.github.io/testing/
+
+Als de APK nog AWC-final-1.0 opent, blijft hij de oude app tonen.

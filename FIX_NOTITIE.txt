@@ -1,0 +1,1 @@
+FIX: syntaxfout in index.html verwijderd waardoor taal-, installatie-, cache- en moduleknoppen niet werkten.

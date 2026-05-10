@@ -1,0 +1,18 @@
+PDF stijl samengevoegd
+
+Nieuwe combinatie:
+- Header/logo/bedrijfsgegevens zoals de rechter PDF:
+  Amsterdam Warehouse Company
+  Slego 1a, 1046 BM Amsterdam
+  Conakryweg 6, 1047 HS Amsterdam
+  info@amsterdamwarehouse.com
+  +31 (0)20-3081287
+- Visuele body zoals de linker PDF:
+  info-blok, oranje tabelheader, status badges, nette kaart/blokken
+- Footer met AWC en paginanummer
+
+Aangepast:
+- Openstaande zendingen PDF volledig gelijkgetrokken.
+- Helperfunctie beschikbaar voor verdere modules: awcPdfBrandHeader, awcPdfInfoBox, awcPdfFooter.
+
+Backup: index-before-pdf-unified-style.html

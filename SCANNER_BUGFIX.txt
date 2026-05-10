@@ -1,0 +1,12 @@
+Scanner bugfix
+
+Gevonden probleem:
+- In de vorige FULL PRO versie stond JavaScript met `renderScans(full=True)`.
+- `True` is Python-stijl en veroorzaakt in JavaScript een ReferenceError zodra renderScans() wordt aangeroepen.
+- Daardoor werkte handmatig toevoegen niet en kon de scanner ook blokkeren.
+
+Gefixt:
+- `True` vervangen door `true`
+- scanMsg veiliger gemaakt
+- extra WhatsApp-fix toegevoegd voor groene WhatsApp-knop
+- backup: index-before-scanner-bugfix.html

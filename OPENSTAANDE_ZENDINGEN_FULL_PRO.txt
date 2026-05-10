@@ -1,0 +1,16 @@
+Openstaande zendingen FULL PRO geïntegreerd
+
+Toegevoegd:
+- Status per zending: Op vloer / Gereed / Geladen / Probleem
+- Tijdstip automatisch
+- Medewerker en locatie
+- Grote duplicate waarschuwing met tijd en medewerker
+- Scan teller en status telling
+- Bulk acties: alles selecteren, markeren, verwijderen
+- Foto's toevoegen per handmatige scan
+- Historie per dag
+- PDF / Mail / Excel
+- Kopieer lijst
+- Groene WhatsApp-knop fix: in deze module verstuurt de groene knop automatisch de zendinglijst
+- Scanner fallback via ZXing + native BarcodeDetector
+- Backup: index-before-openstaande-zendingen-full-pro.html

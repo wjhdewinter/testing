@@ -1,0 +1,18 @@
+Excel PRO update
+
+Doel:
+- Excel exports minder rommelig maken
+- Printvriendelijke overzichten
+- Duidelijke titel/header
+- Info-blok met datum/locatie/medewerker/aantal
+- Net gestileerde tabellen
+- Autofilter
+- Betere kolombreedtes
+- Samenvatting waar mogelijk
+
+Aangepast:
+- Openstaande zendingen Excel export
+- Personeelsplanning Excel export (indien module aanwezig)
+- Algemene Excel beautify-wrapper voor overige modules die XLSX.writeFile gebruiken
+
+Backup: index-before-excel-pro.html

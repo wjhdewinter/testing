@@ -1,0 +1,7 @@
+Update:
+- Personeelstatus "Niet ingeroosterd" gecorrigeerd.
+- NL: 📅 Niet ingeroosterd.
+- EN: 📅 Not scheduled.
+- Emoji toegevoegd aan alle statusweergaves waar de personeelsstatus wordt getoond.
+- amazon1@neomounts.com toegevoegd aan ontvangers.
+- warehouseh@amsterdamwarehouse.com verwijderd / vervangen door warehouse@amsterdamwarehouse.com in standaardinstellingen.

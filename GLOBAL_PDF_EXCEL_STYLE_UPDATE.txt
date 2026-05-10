@@ -1,0 +1,12 @@
+Globale PDF + Excel stijl update
+
+Doel:
+- Alle PDF's dezelfde stijl als Openstaande zendingen
+- Alle Excel exports dezelfde nette overzichtelijke stijl
+- Modules behouden hun eigen inhoud/karakteristieken
+
+Toegevoegd:
+- Universele AWC PDF header/footer helpers
+- Universele AWC Excel helpers
+- Automatische styling voor bestaande XLSX exports
+- Consistente branding/logo/contactgegevens

@@ -1,0 +1,1 @@
+Niet ingeroosterd staat nu in hetzelfde keuzemenu bij Personeel: Alleen afwezigen, Afwezigen + niet ingeroosterd, of Hele lijst. Dit werkt voor WhatsApp, mail, PDF en Excel.

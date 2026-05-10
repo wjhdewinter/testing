@@ -1,0 +1,33 @@
+AWC PDF + Excel uniform final
+
+Aangepast op basis van je laatste verzoek:
+- Alle module-PDF's krijgen dezelfde uitstraling als Openstaande zendingen:
+  * echte AWC-logo in de witte header
+  * contactgegevens naast het logo
+  * oranje accentlijn
+  * nette info-blokken
+  * nette tabellen
+  * tekstvakken die automatisch meegroeien
+  * footer met paginanummer
+
+- Alle Excel exports krijgen dezelfde overzichtelijke stijl:
+  * titel en meta-info bovenaan
+  * nette tabelstructuur per module
+  * betere kolommen
+  * filters
+  * printvriendelijke layout
+  * samenvatting waar nuttig
+
+Modules meegenomen:
+- Pallettelling
+- Personeel
+- Warehousecontrole
+- Machinecheck
+- Orderweging
+- Incidenten
+- Schade
+- Manco
+- Openstaande zendingen
+
+Back-up:
+- index-before-full-pdf-excel-uniform-refactor.html

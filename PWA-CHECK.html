@@ -1,0 +1,8 @@
+<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="manifest" href="./manifest.json"><title>PWA check</title><style>body{font-family:Arial,sans-serif;margin:0;background:#f3f4f6;color:#111827;padding:20px}.card{background:white;border-radius:20px;padding:18px;margin:12px 0;box-shadow:0 8px 25px rgba(0,0,0,.08)}.ok{color:#15803d;font-weight:900}.bad{color:#b91c1c;font-weight:900}</style></head><body><h1>AWC PWA check</h1><div class="card" id="out">Controleren...</div><script>
+(async()=>{const lines=[];function add(ok,msg){lines.push(`<p class="${ok?'ok':'bad'}">${ok?'✅':'❌'} ${msg}</p>`)}
+add(location.protocol==='https:'||location.hostname==='localhost','HTTPS of localhost');
+try{const m=await fetch('./manifest.json',{cache:'no-store'});add(m.ok,'manifest.json bereikbaar');const j=await m.json();add(!!j.name&&!!j.start_url&&!!j.icons,'manifest bevat name/start_url/icons')}catch(e){add(false,'manifest fout: '+e.message)}
+add('serviceWorker' in navigator,'browser ondersteunt service worker');
+try{const r=await navigator.serviceWorker.register('./service-worker.js',{updateViaCache:'none'});add(!!r,'service-worker.js geregistreerd')}catch(e){add(false,'service worker fout: '+e.message)}
+document.getElementById('out').innerHTML=lines.join('')+'<p>Open daarna PWA Builder met de normale site-link.</p>';})();
+</script></body></html>
