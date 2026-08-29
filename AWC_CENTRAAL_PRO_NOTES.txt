@@ -1,0 +1,26 @@
+AWC TOOL 2.0 – CENTRAAL PRO (29-08-2026)
+
+Uitgevoerd:
+1. Centraal operationeel dashboard.
+2. Aangemaakt door / laatst gewijzigd door in gedeelde historie.
+3. Teamactiviteit kan de bijbehorende module direct openen.
+4. Opvolgstatus: Open / In behandeling / Afgerond.
+5. Ongelezen Team-badge.
+6. Online/offline status + wachtrij voor synchronisatie.
+7. Prullenbak: zoeken/filteren, herstellen, definitief verwijderen, 90 dagen.
+8. Foto's centraal in private Supabase Storage (nieuwe/overgezette lokale foto's).
+9. Beheer voor beheerders: gebruikers, rollen, activeren/deactiveren, uitnodigen.
+10. Back-up: automatische dagelijkse centrale snapshot (30 dagen) + handmatige cloud-backup download.
+
+Bewaartermijnen:
+- Teamactiviteit: 30 dagen
+- Prullenbak: 90 dagen
+- Dagelijkse backups: 30 dagen
+- Normale centrale registraties: blijven bewaard tot ze worden verwijderd
+
+Supabase Storage:
+- awc-tool-media: private, max. 8 MB per afbeelding
+- awc-tool-backups: private
+
+Belangrijk:
+De app blijft lokaal werken wanneer internet tijdelijk wegvalt. Nieuwe cloudacties komen in een wachtrij en worden bij terugkeer van internet gesynchroniseerd.

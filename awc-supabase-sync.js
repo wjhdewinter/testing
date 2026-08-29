@@ -18,6 +18,8 @@
   let recordsChannel = null;
   let activityDays = 1;
   let activityModule = '';
+  const MEDIA_BUCKET = 'awc-tool-media';
+  const QUEUE_KEY = 'awc_v20_cloud_queue_v1';
 
   const _awcLsRemove = localStorage.removeItem.bind(localStorage);
   const _awcLsSet = localStorage.setItem.bind(localStorage);
@@ -78,9 +80,38 @@
     return interesting.length ? `${base}: ${interesting.slice(0, 2).join(' - ')}` : `${base} opgeslagen`;
   }
 
+  function cloudQueueRead() {
+    try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); } catch (_) { return []; }
+  }
+
+  function cloudQueueAdd(item) {
+    const q = cloudQueueRead();
+    q.push(item);
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(q.slice(-500)));
+    window.dispatchEvent(new CustomEvent('awc-cloud-queue-changed', { detail: { count: q.length } }));
+  }
+
+  async function flushCloudQueue() {
+    if (!client || !currentUser || !navigator.onLine) return;
+    const q = cloudQueueRead();
+    if (!q.length) return;
+    const remaining = [];
+    for (const item of q) {
+      try {
+        let error = null;
+        if (item.kind === 'activity') ({ error } = await client.from(ACTIVITY_TABLE).upsert(item.row));
+        if (item.kind === 'record') ({ error } = await client.from(RECORDS_TABLE).upsert(item.row, { onConflict: 'module,record_id' }));
+        if (error) throw error;
+      } catch (_) { remaining.push(item); }
+    }
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(remaining));
+    window.dispatchEvent(new CustomEvent('awc-cloud-queue-changed', { detail: { count: remaining.length } }));
+  }
+
   async function cloudLog(module, action, description, payload) {
     if (!client || !currentUser) return;
     const row = {
+      id: crypto.randomUUID ? crypto.randomUUID() : undefined,
       user_id: currentUser.id,
       actor_email: (currentUser.email || '').toLowerCase(),
       module: module || 'algemeen',
@@ -88,8 +119,9 @@
       description: description || '',
       payload: safePayload(payload || {})
     };
-    const { error } = await client.from(ACTIVITY_TABLE).insert(row);
-    if (error) console.warn('AWC cloudlog:', error.message);
+    if (!navigator.onLine) { cloudQueueAdd({ kind: 'activity', row }); return; }
+    const { error } = await client.from(ACTIVITY_TABLE).upsert(row);
+    if (error) { console.warn('AWC cloudlog:', error.message); cloudQueueAdd({ kind: 'activity', row }); }
   }
 
   function makeUi() {
@@ -355,20 +387,76 @@
     } catch (_) { return { items: [] }; }
   }
 
+  function dataUrlToBlob(dataUrl) {
+    const [head, body] = String(dataUrl).split(',');
+    const mime = (head.match(/data:([^;]+)/) || [,'image/jpeg'])[1];
+    const bin = atob(body || '');
+    const bytes = new Uint8Array(bin.length);
+    for (let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+
+  async function uploadMediaDataUrl(dataUrl, module, recordId) {
+    const blob = dataUrlToBlob(dataUrl);
+    const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : blob.type.includes('gif') ? 'gif' : 'jpg';
+    const path = `${module}/${recordId}/${crypto.randomUUID ? crypto.randomUUID() : Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await client.storage.from(MEDIA_BUCKET).upload(path, blob, { contentType: blob.type, upsert: false });
+    if (error) throw error;
+    return { __awc_media: path, mime: blob.type };
+  }
+
+  async function prepareCloudData(value, module, recordId, depth=0) {
+    if (depth > 10 || value == null || typeof value === 'number' || typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+      if (value.startsWith('data:image/')) {
+        try { return await uploadMediaDataUrl(value, module, recordId); }
+        catch (e) { console.warn('AWC foto upload:', e.message); return '[foto lokaal bewaard - cloud upload mislukt]'; }
+      }
+      return value;
+    }
+    if (Array.isArray(value)) {
+      const out=[]; for (const v of value) out.push(await prepareCloudData(v,module,recordId,depth+1)); return out;
+    }
+    if (typeof value === 'object') {
+      const out={};
+      for (const [k,v] of Object.entries(value)) {
+        if (k === '__awc_cloud') continue;
+        out[k]=await prepareCloudData(v,module,recordId,depth+1);
+      }
+      return out;
+    }
+    return String(value);
+  }
+
+  async function resolveCloudMedia(value, depth=0) {
+    if (depth > 10 || value == null || typeof value !== 'object') return value;
+    if (!Array.isArray(value) && value.__awc_media) {
+      const { data, error } = await client.storage.from(MEDIA_BUCKET).createSignedUrl(value.__awc_media, 86400);
+      return error ? '' : (data?.signedUrl || '');
+    }
+    if (Array.isArray(value)) {
+      const out=[]; for (const v of value) out.push(await resolveCloudMedia(v,depth+1)); return out;
+    }
+    const out={}; for (const [k,v] of Object.entries(value)) out[k]=await resolveCloudMedia(v,depth+1); return out;
+  }
+
   async function upsertCentralRecord(module, record) {
     if (!client || !currentUser || !record) return;
     const recordId = String(record.id ?? record.record_id ?? (module === 'scans' ? 'current' : ''));
     if (!recordId) return;
+    const cloudData = navigator.onLine ? await prepareCloudData(record, module, recordId) : safePayload(record);
     const row = {
       module,
       record_id: recordId,
-      data: safePayload(record),
+      data: cloudData,
       actor_email: (currentUser.email || '').toLowerCase(),
+      created_by_email: (currentUser.email || '').toLowerCase(),
       updated_at: new Date().toISOString(),
       deleted_at: null
     };
+    if (!navigator.onLine) { cloudQueueAdd({ kind: 'record', row }); return; }
     const { error } = await client.from(RECORDS_TABLE).upsert(row, { onConflict: 'module,record_id' });
-    if (error) console.warn('AWC centrale database:', error.message);
+    if (error) { console.warn('AWC centrale database:', error.message); cloudQueueAdd({ kind: 'record', row }); }
   }
 
   async function syncCurrentScans() {
@@ -378,7 +466,7 @@
 
   async function migrateLocalHistoryOnce() {
     if (!client || !currentUser) return;
-    const flag = appPrefix() + 'cloud_records_migrated_v1_' + currentUser.id;
+    const flag = appPrefix() + 'cloud_records_migrated_v2_media_' + currentUser.id;
     if (localStorage.getItem(flag) === '1') return;
     for (const module of HISTORY_MODULES) {
       const rows = localHistory(module);
@@ -399,17 +487,24 @@
       const { data } = await client.from(RECORDS_TABLE)
         .select('data').eq('module','scans').eq('record_id','current').is('deleted_at', null).maybeSingle();
       if (data?.data?.items && typeof window.awcApplyCloudScans === 'function') {
-        window.awcApplyCloudScans(data.data.items);
+        const resolved = await resolveCloudMedia(data.data);
+        window.awcApplyCloudScans(resolved.items || []);
       }
       return;
     }
     if (!HISTORY_MODULES.includes(module)) return;
     const { data, error } = await client.from(RECORDS_TABLE)
-      .select('data,updated_at').eq('module', module).is('deleted_at', null)
-      .order('updated_at', { ascending: false }).limit(500);
+      .select('data,updated_at,created_at,actor_email,created_by_email,workflow_status,status_updated_at,status_updated_by,record_id,deleted_at').eq('module', module)
+      .order('updated_at', { ascending: false }).limit(1000);
     if (error) return;
-    const cloudRows = (data || []).map(x => x.data).filter(Boolean);
-    const localRows = localHistory(module);
+    const cloudRows = [];
+    const deletedIds = new Set((data || []).filter(x => x.deleted_at).map(x => String(x.record_id)));
+    for (const x of (data || [])) {
+      if (x.deleted_at || !x.data) continue;
+      const resolved = await resolveCloudMedia(x.data);
+      cloudRows.push({ ...resolved, __awc_cloud: { record_id:x.record_id, created_at:x.created_at, updated_at:x.updated_at, actor_email:x.actor_email, created_by_email:x.created_by_email, workflow_status:x.workflow_status, status_updated_at:x.status_updated_at, status_updated_by:x.status_updated_by } });
+    }
+    const localRows = localHistory(module).filter(row => !deletedIds.has(String(row?.id ?? '')));
     const byId = new Map();
     [...localRows, ...cloudRows].forEach(row => {
       const id = String(row?.id ?? '');
@@ -516,11 +611,12 @@
       return;
     }
     list.innerHTML = data.map(row => `
-      <div class="awcTrashItem">
+      <div class="awcTrashItem" data-module="${esc(row.module)}" data-search="${esc(((moduleNames[row.module]||row.module)+' '+trashSummary(row)+' '+(row.actor_email||'')).toLowerCase())}">
         <div class="awcTrashTop">
           <div>
             <div style="font-weight:900">${esc(moduleNames[row.module] || row.module)} · ${esc(trashSummary(row))}</div>
             <div class="awcCloudMuted">Verwijderd: ${esc(fmtTime(row.deleted_at))} · ${esc(row.actor_email || '')}</div>
+            <div class="awcCloudMuted"><b>Nog ${Math.max(0,90-Math.floor((Date.now()-new Date(row.deleted_at).getTime())/86400000))} dagen bewaard</b></div>
           </div>
         </div>
         <div class="awcTrashActions">
@@ -604,7 +700,10 @@
           </div>
         </div>
         <div class="awcActivityMeta">${esc(row.actor_email)} · ${esc(moduleNames[row.module] || row.module)} · ${esc(row.action)}</div>
-        <div class="awcToggleHint">Tik om volledige registratie te bekijken</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:7px">
+          <button type="button" class="awcCloudAction" style="padding:7px 10px" onclick="event.stopPropagation();window.awcOpenActivityRecord('${esc(row.module)}','${esc(row.payload?.id || row.payload?.record_id || '')}')">Open module</button>
+          <span class="awcToggleHint">Tik voor volledige details</span>
+        </div>
         <div id="awc-detail-${row.id}" class="awcDetail" onclick="event.stopPropagation()">
           ${renderObject(row.payload || {})}
         </div>
@@ -721,7 +820,18 @@
     });
   }
 
+  function openActivityRecord(module, recordId) {
+    const target = module === 'scans' ? 'scanner' : module;
+    try { if (typeof window.show === 'function') window.show(target); } catch (_) {}
+    document.getElementById('awcTeamModal')?.classList.remove('open');
+    setTimeout(() => {
+      const el = recordId ? document.querySelector(`[data-awc-record-id="${CSS.escape(String(recordId))}"]`) : null;
+      if (el) { el.scrollIntoView({behavior:'smooth',block:'center'}); el.style.outline='3px solid #ff7a00'; setTimeout(()=>el.style.outline='',2500); }
+    }, 150);
+  }
+
   window.awcToggleActivityDetail = toggleActivityDetail;
+  window.awcOpenActivityRecord = openActivityRecord;
   window.awcDeleteActivity = deleteActivity;
   window.awcRestoreRecord = restoreRecord;
   window.awcPermanentlyDeleteRecord = permanentlyDeleteRecord;
@@ -753,6 +863,7 @@
       subscribeCentralRecords();
       await migrateLocalHistoryOnce();
       await hydrateCentralData();
+      await flushCloudQueue();
     } else {
       document.getElementById('awcAuthModal').classList.add('open');
     }
@@ -767,8 +878,11 @@
         subscribeCentralRecords();
         await migrateLocalHistoryOnce();
         await hydrateCentralData();
+        await flushCloudQueue();
       }
     });
+    window.addEventListener('online', flushCloudQueue);
+    window.dispatchEvent(new CustomEvent('awc-cloud-queue-changed', { detail: { count: cloudQueueRead().length } }));
   }
 
   if (document.readyState === 'loading') {
