@@ -1,4 +1,4 @@
-const CACHE_NAME = 'awc-supabase-team-v8';
+const CACHE_NAME = 'awc-supabase-team-v9';
 const APP_SHELL = [
   './awc-supabase-sync.js',
   './awc-operations-v3.js',
