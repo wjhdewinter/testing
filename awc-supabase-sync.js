@@ -16,6 +16,8 @@
   let hooksInstalled = false;
   let memberRole = '';
   let recordsChannel = null;
+  let activityDays = 1;
+  let activityModule = '';
 
   const moduleNames = {
     pallets: 'Wegen / pallets',
@@ -117,6 +119,7 @@
       .awcCloudToolbar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}
       .awcDeleteActivity{border:0;border-radius:8px;padding:6px 9px;background:#fee2e2;color:#991b1b;font-weight:800;cursor:pointer;font-size:12px}
       .awcRetention{margin:8px 0 12px;padding:9px 11px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;color:#1e3a8a;font-size:13px}
+      .awcTeamFilters{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin:0 0 12px}.awcFilterBtn,.awcModuleFilter{border:1px solid #cbd5e1;background:white;border-radius:9px;padding:8px 10px;font-weight:700}.awcFilterBtn.active{background:#0f172a;color:white}.awcActivityBadge{display:inline-block;border-radius:999px;padding:3px 7px;font-size:11px;font-weight:800;margin-right:5px}.awcBadgeNew{background:#dcfce7;color:#166534}.awcBadgeChange{background:#dbeafe;color:#1e40af}.awcBadgeDelete{background:#fee2e2;color:#991b1b}
       @media(max-width:600px){
         #awcTeamBtn{right:9px;top:74px;padding:10px 13px}
         .awcCloudCard{padding:14px;border-radius:14px}
@@ -150,7 +153,24 @@
             <button id="awcTeamClear" class="awcCloudAction" type="button" style="display:none;background:#b91c1c">Teamlog wissen</button>
             <button id="awcTeamLogout" class="awcCloudAction" type="button">Uitloggen</button>
           </div>
-          <div class="awcRetention">Teamactiviteit wordt 30 dagen bewaard. De echte registraties staan apart in de centrale database.</div>
+          <div class="awcRetention"><b>Teamoverzicht</b> toont recente wijzigingen. De echte gegevens staan centraal en verschijnen ook in de betreffende modules. Teamactiviteit wordt 30 dagen bewaard.</div>
+          <div class="awcTeamFilters">
+            <button type="button" class="awcFilterBtn active" data-days="1">Vandaag</button>
+            <button type="button" class="awcFilterBtn" data-days="7">Deze week</button>
+            <button type="button" class="awcFilterBtn" data-days="30">30 dagen</button>
+            <select id="awcModuleFilter" class="awcModuleFilter">
+              <option value="">Alle modules</option>
+              <option value="warehouse">Warehouse</option>
+              <option value="personnel">Personeel</option>
+              <option value="scans">Openstaande zendingen</option>
+              <option value="orders">Orders</option>
+              <option value="pallets">Pallets</option>
+              <option value="machines">Machines</option>
+              <option value="incidents">Incidenten</option>
+              <option value="damage">Schade</option>
+              <option value="manco">Manco</option>
+            </select>
+          </div>
           <div id="awcActivityList"><div class="awcCloudMuted">Activiteit laden…</div></div>
         </div>
       </div>
@@ -167,6 +187,15 @@
     document.getElementById('awcTeamClose').addEventListener('click', () => document.getElementById('awcTeamModal').classList.remove('open'));
     document.getElementById('awcTeamRefresh').addEventListener('click', loadActivity);
     document.getElementById('awcTeamClear').addEventListener('click', clearActivityLog);
+    document.querySelectorAll('.awcFilterBtn').forEach(btn => btn.addEventListener('click', () => {
+      activityDays = Number(btn.dataset.days || 1);
+      document.querySelectorAll('.awcFilterBtn').forEach(b => b.classList.toggle('active', b === btn));
+      loadActivity();
+    }));
+    document.getElementById('awcModuleFilter').addEventListener('change', e => {
+      activityModule = e.target.value || '';
+      loadActivity();
+    });
     document.getElementById('awcTeamLogout').addEventListener('click', async () => {
       await client.auth.signOut();
       currentUser = null;
@@ -355,7 +384,14 @@
       .select('data,updated_at').eq('module', module).is('deleted_at', null)
       .order('updated_at', { ascending: false }).limit(500);
     if (error) return;
-    const rows = (data || []).map(x => x.data).filter(Boolean);
+    const cloudRows = (data || []).map(x => x.data).filter(Boolean);
+    const localRows = localHistory(module);
+    const byId = new Map();
+    [...localRows, ...cloudRows].forEach(row => {
+      const id = String(row?.id ?? '');
+      if (id) byId.set(id, row);
+    });
+    const rows = [...byId.values()].sort((a,b) => String(b.timestamp||b.savedAt||'').localeCompare(String(a.timestamp||a.savedAt||'')));
     localStorage.setItem(appPrefix() + module, JSON.stringify(rows));
     try { if (typeof window.renderAll === 'function') window.renderAll(); } catch (_) {}
   }
@@ -395,11 +431,14 @@
     if (!client || !currentUser) return;
     const list = document.getElementById('awcActivityList');
     list.innerHTML = '<div class="awcCloudMuted">Activiteit laden…</div>';
-    const { data, error } = await client
+    let q = client
       .from(ACTIVITY_TABLE)
       .select('id,created_at,actor_email,module,action,description,payload')
+      .gte('created_at', new Date(Date.now() - activityDays * 86400000).toISOString())
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(200);
+    if (activityModule) q = q.eq('module', activityModule);
+    const { data, error } = await q;
 
     if (error) {
       list.innerHTML = `<div class="awcCloudMuted">Kon teamactiviteit niet laden: ${esc(error.message)}</div>`;
