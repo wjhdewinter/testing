@@ -1593,6 +1593,11 @@ function addScan(code,source='manual',note='',photos=[]){
  renderScans();
 }
 
+window.awcApplyCloudScans=function(items){
+ scanItems=Array.isArray(items)?items.map(x=>({...x})):[];
+ localStorage.setItem(SCAN_KEY,JSON.stringify(scanItems));
+ renderScans();
+};
 function removeScan(i){ scanItems.splice(i,1); localStorage.setItem(SCAN_KEY,JSON.stringify(scanItems)); renderScans(); }
 function clearScans(){ if(!confirm('Openstaande zendingen lijst leegmaken?'))return; scanItems=[]; localStorage.setItem(SCAN_KEY,JSON.stringify(scanItems)); renderScans(); }
 function toggleScanSelected(i,checked){ if(scanItems[i]) scanItems[i].selected=checked; localStorage.setItem(SCAN_KEY,JSON.stringify(scanItems)); renderScans(false); }

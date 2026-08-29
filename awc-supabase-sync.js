@@ -7,11 +7,15 @@
   const SUPABASE_URL = 'https://ghhcnzjdzmuupigspppl.supabase.co';
   const SUPABASE_KEY = 'sb_publishable__tat43V0qbu_yu3lKiIFaA_w0nseD02';
   const ACTIVITY_TABLE = 'awc_tool_activity';
+  const RECORDS_TABLE = 'awc_tool_records';
+  const HISTORY_MODULES = ['pallets','personnel','warehouse','orders','machines','incidents','damage','manco'];
 
   let client = null;
   let currentUser = null;
   let realtimeChannel = null;
   let hooksInstalled = false;
+  let memberRole = '';
+  let recordsChannel = null;
 
   const moduleNames = {
     pallets: 'Wegen / pallets',
@@ -111,6 +115,8 @@
       .awcDetailSection{margin:10px 0 4px;font-weight:800;color:#0f172a}
       .awcToggleHint{font-size:12px;color:#2563eb;margin-top:6px;font-weight:700}
       .awcCloudToolbar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}
+      .awcDeleteActivity{border:0;border-radius:8px;padding:6px 9px;background:#fee2e2;color:#991b1b;font-weight:800;cursor:pointer;font-size:12px}
+      .awcRetention{margin:8px 0 12px;padding:9px 11px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;color:#1e3a8a;font-size:13px}
       @media(max-width:600px){
         #awcTeamBtn{right:9px;top:74px;padding:10px 13px}
         .awcCloudCard{padding:14px;border-radius:14px}
@@ -141,8 +147,10 @@
           </div>
           <div class="awcCloudToolbar">
             <button id="awcTeamRefresh" class="awcCloudAction" type="button">Vernieuwen</button>
+            <button id="awcTeamClear" class="awcCloudAction" type="button" style="display:none;background:#b91c1c">Teamlog wissen</button>
             <button id="awcTeamLogout" class="awcCloudAction" type="button">Uitloggen</button>
           </div>
+          <div class="awcRetention">Teamactiviteit wordt 30 dagen bewaard. De echte registraties staan apart in de centrale database.</div>
           <div id="awcActivityList"><div class="awcCloudMuted">Activiteit laden…</div></div>
         </div>
       </div>
@@ -158,6 +166,7 @@
     });
     document.getElementById('awcTeamClose').addEventListener('click', () => document.getElementById('awcTeamModal').classList.remove('open'));
     document.getElementById('awcTeamRefresh').addEventListener('click', loadActivity);
+    document.getElementById('awcTeamClear').addEventListener('click', clearActivityLog);
     document.getElementById('awcTeamLogout').addEventListener('click', async () => {
       await client.auth.signOut();
       currentUser = null;
@@ -182,9 +191,12 @@
     const { data, error } = await client
       .from('awc_app_members')
       .select('email,active,role')
-      .eq('email', email)
+      .ilike('email', email)
       .maybeSingle();
     if (error) return false;
+    memberRole = data?.role || '';
+    const clearBtn = document.getElementById('awcTeamClear');
+    if (clearBtn) clearBtn.style.display = memberRole === 'beheerder' ? '' : 'none';
     return !!data?.active;
   }
 
@@ -209,6 +221,9 @@
     setStatus(true);
     installHooks();
     subscribeActivity();
+    subscribeCentralRecords();
+    await migrateLocalHistoryOnce();
+    await hydrateCentralData();
     await loadActivity();
   }
 
@@ -268,6 +283,114 @@
     if (el) el.classList.toggle('open');
   }
 
+
+  function appPrefix() {
+    try { return typeof KEY !== 'undefined' ? KEY : 'awc_v20_'; } catch (_) { return 'awc_v20_'; }
+  }
+
+  function localHistory(module) {
+    try { return JSON.parse(localStorage.getItem(appPrefix() + module) || '[]'); } catch (_) { return []; }
+  }
+
+  function currentScansPayload() {
+    try {
+      if (typeof window.currentScanReport === 'function') return window.currentScanReport();
+    } catch (_) {}
+    try {
+      const key = appPrefix() + 'open_shipments_full_pro_v1';
+      return { items: JSON.parse(localStorage.getItem(key) || '[]') };
+    } catch (_) { return { items: [] }; }
+  }
+
+  async function upsertCentralRecord(module, record) {
+    if (!client || !currentUser || !record) return;
+    const recordId = String(record.id ?? record.record_id ?? (module === 'scans' ? 'current' : ''));
+    if (!recordId) return;
+    const row = {
+      module,
+      record_id: recordId,
+      data: safePayload(record),
+      actor_email: (currentUser.email || '').toLowerCase(),
+      updated_at: new Date().toISOString(),
+      deleted_at: null
+    };
+    const { error } = await client.from(RECORDS_TABLE).upsert(row, { onConflict: 'module,record_id' });
+    if (error) console.warn('AWC centrale database:', error.message);
+  }
+
+  async function syncCurrentScans() {
+    const report = currentScansPayload();
+    await upsertCentralRecord('scans', { ...report, id: 'current' });
+  }
+
+  async function migrateLocalHistoryOnce() {
+    if (!client || !currentUser) return;
+    const flag = appPrefix() + 'cloud_records_migrated_v1_' + currentUser.id;
+    if (localStorage.getItem(flag) === '1') return;
+    for (const module of HISTORY_MODULES) {
+      const rows = localHistory(module);
+      for (const row of rows) {
+        if (row?.id != null) await upsertCentralRecord(module, row);
+      }
+    }
+    const scans = currentScansPayload();
+    if (Array.isArray(scans?.items) && scans.items.length) {
+      await upsertCentralRecord('scans', { ...scans, id: 'current' });
+    }
+    localStorage.setItem(flag, '1');
+  }
+
+  async function refreshCentralModule(module) {
+    if (!client || !currentUser) return;
+    if (module === 'scans') {
+      const { data } = await client.from(RECORDS_TABLE)
+        .select('data').eq('module','scans').eq('record_id','current').is('deleted_at', null).maybeSingle();
+      if (data?.data?.items && typeof window.awcApplyCloudScans === 'function') {
+        window.awcApplyCloudScans(data.data.items);
+      }
+      return;
+    }
+    if (!HISTORY_MODULES.includes(module)) return;
+    const { data, error } = await client.from(RECORDS_TABLE)
+      .select('data,updated_at').eq('module', module).is('deleted_at', null)
+      .order('updated_at', { ascending: false }).limit(500);
+    if (error) return;
+    const rows = (data || []).map(x => x.data).filter(Boolean);
+    localStorage.setItem(appPrefix() + module, JSON.stringify(rows));
+    try { if (typeof window.renderAll === 'function') window.renderAll(); } catch (_) {}
+  }
+
+  async function hydrateCentralData() {
+    for (const module of HISTORY_MODULES) await refreshCentralModule(module);
+    await refreshCentralModule('scans');
+  }
+
+  function subscribeCentralRecords() {
+    if (!client || !currentUser || recordsChannel) return;
+    recordsChannel = client.channel('awc-tool-central-records')
+      .on('postgres_changes', { event: '*', schema: 'public', table: RECORDS_TABLE }, payload => {
+        const module = payload?.new?.module || payload?.old?.module;
+        if (module) refreshCentralModule(module);
+      })
+      .subscribe();
+  }
+
+  async function deleteActivity(id) {
+    if (memberRole !== 'beheerder') return;
+    if (!confirm('Deze Team-melding verwijderen?')) return;
+    const { error } = await client.from(ACTIVITY_TABLE).delete().eq('id', id);
+    if (error) alert('Verwijderen mislukt: ' + error.message);
+    else loadActivity();
+  }
+
+  async function clearActivityLog() {
+    if (memberRole !== 'beheerder') return;
+    if (!confirm('Alle Teamactiviteit wissen? De centrale registraties blijven bewaard.')) return;
+    const { error } = await client.from(ACTIVITY_TABLE).delete().lt('created_at', '9999-12-31T23:59:59Z');
+    if (error) alert('Teamlog wissen mislukt: ' + error.message);
+    else loadActivity();
+  }
+
   async function loadActivity() {
     if (!client || !currentUser) return;
     const list = document.getElementById('awcActivityList');
@@ -290,7 +413,10 @@
       <div class="awcActivity" onclick="window.awcToggleActivityDetail('${row.id}')">
         <div class="awcActivityTop">
           <div class="awcActivityTitle">${esc(row.description || (moduleNames[row.module] || row.module))}</div>
-          <div class="awcCloudMuted">${esc(fmtTime(row.created_at))}</div>
+          <div style="display:flex;align-items:center;gap:7px">
+            <div class="awcCloudMuted">${esc(fmtTime(row.created_at))}</div>
+            ${memberRole === 'beheerder' ? `<button class="awcDeleteActivity" type="button" onclick="event.stopPropagation();window.awcDeleteActivity('${row.id}')">Wissen</button>` : ''}
+          </div>
         </div>
         <div class="awcActivityMeta">${esc(row.actor_email)} · ${esc(moduleNames[row.module] || row.module)} · ${esc(row.action)}</div>
         <div class="awcToggleHint">Tik om volledige registratie te bekijken</div>
@@ -304,7 +430,7 @@
     if (!client || !currentUser || realtimeChannel) return;
     realtimeChannel = client
       .channel('awc-tool-team-activity')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: ACTIVITY_TABLE }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: ACTIVITY_TABLE }, () => {
         if (document.getElementById('awcTeamModal')?.classList.contains('open')) loadActivity();
       })
       .subscribe();
@@ -329,39 +455,51 @@
     hooksInstalled = true;
 
     wrap('saveHist', (module, data) => {
-      cloudLog(module, 'opgeslagen', describe(module, data), data);
+      const saved = localHistory(module)[0] || data;
+      upsertCentralRecord(module, saved);
+      cloudLog(module, 'opgeslagen', describe(module, saved), saved);
     });
 
     wrap('saveScans', () => {
-      let report = null;
-      try { report = typeof window.currentScanReport === 'function' ? window.currentScanReport() : null; } catch (_) {}
-      const items = report?.items || (Array.isArray(window.scanItems) ? window.scanItems : []);
-      const payload = report || { items: items.map(x => ({...x})) };
-      cloudLog('scans', 'lijst opgeslagen', `Openstaande zendingen: ${items.length} zending(en)`, payload);
+      const report = currentScansPayload();
+      const items = report?.items || [];
+      upsertCentralRecord('scans', { ...report, id: 'current' });
+      cloudLog('scans', 'lijst opgeslagen', `Openstaande zendingen: ${items.length} zending(en)`, report);
     });
 
     wrap('addScan', value => {
-      cloudLog('scans', 'zending toegevoegd', `Zending toegevoegd: ${String(value || '').slice(0, 80)}`, { shipment: value });
+      syncCurrentScans();
+      cloudLog('scans', 'zending toegevoegd', `Zending toegevoegd: ${String(value || '').slice(0, 80)}`, currentScansPayload());
     });
 
-    wrap('removeScan', index => {
-      cloudLog('scans', 'zending verwijderd', 'Zending uit de werk-/scanlijst verwijderd', { index });
+    wrap('removeScan', () => {
+      syncCurrentScans();
+      cloudLog('scans', 'zending verwijderd', 'Zending uit de centrale openstaande zendingenlijst verwijderd', currentScansPayload());
+    });
+
+    wrap('removeSelectedScans', () => {
+      syncCurrentScans();
+      cloudLog('scans', 'zendingen verwijderd', 'Geselecteerde zendingen verwijderd', currentScansPayload());
     });
 
     wrap('clearScans', () => {
-      cloudLog('scans', 'lijst leeggemaakt', 'Openstaande zendingenlijst leeggemaakt', {});
+      syncCurrentScans();
+      cloudLog('scans', 'lijst leeggemaakt', 'Openstaande zendingenlijst leeggemaakt', currentScansPayload());
     });
 
     wrap('setScanStatus', (index, status) => {
-      cloudLog('scans', 'status gewijzigd', `Zendingstatus gewijzigd naar ${status}`, { index, status });
+      syncCurrentScans();
+      cloudLog('scans', 'status gewijzigd', `Zendingstatus gewijzigd naar ${status}`, currentScansPayload());
     });
 
     wrap('bulkSetStatus', status => {
-      cloudLog('scans', 'statussen gewijzigd', `Meerdere zendingen gewijzigd naar ${status}`, { status });
+      syncCurrentScans();
+      cloudLog('scans', 'statussen gewijzigd', `Meerdere zendingen gewijzigd naar ${status}`, currentScansPayload());
     });
   }
 
   window.awcToggleActivityDetail = toggleActivityDetail;
+  window.awcDeleteActivity = deleteActivity;
 
   async function initCloud() {
     makeUi();
@@ -387,16 +525,23 @@
     if (currentUser) {
       installHooks();
       subscribeActivity();
+      subscribeCentralRecords();
+      await migrateLocalHistoryOnce();
+      await hydrateCentralData();
     } else {
       document.getElementById('awcAuthModal').classList.add('open');
     }
 
-    client.auth.onAuthStateChange((_event, session) => {
+    client.auth.onAuthStateChange(async (_event, session) => {
       currentUser = session?.user || null;
       setStatus(!!currentUser);
       if (currentUser) {
+        await memberIsActive();
         installHooks();
         subscribeActivity();
+        subscribeCentralRecords();
+        await migrateLocalHistoryOnce();
+        await hydrateCentralData();
       }
     });
   }
