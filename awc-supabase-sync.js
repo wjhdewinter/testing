@@ -32,13 +32,13 @@
   }
 
   function safePayload(value, depth = 0) {
-    if (depth > 3) return '[ingekort]';
+    if (depth > 8) return '[te diep genest]';
     if (value == null || typeof value === 'number' || typeof value === 'boolean') return value;
     if (typeof value === 'string') {
-      if (value.startsWith('data:image/') || value.length > 800) return '[ingekort]';
+      if (value.startsWith('data:image/')) return '[afbeelding niet in log opgeslagen]';
       return value;
     }
-    if (Array.isArray(value)) return value.slice(0, 30).map(v => safePayload(v, depth + 1));
+    if (Array.isArray(value)) return value.map(v => safePayload(v, depth + 1));
     if (typeof value === 'object') {
       const out = {};
       Object.entries(value).forEach(([k, v]) => {
@@ -79,7 +79,7 @@
 
     const style = document.createElement('style');
     style.textContent = `
-      #awcTeamBtn{position:fixed;right:14px;bottom:14px;z-index:9997;border:0;border-radius:999px;
+      #awcTeamBtn{position:fixed;right:14px;top:82px;z-index:9997;border:0;border-radius:999px;
         padding:11px 15px;background:#0f172a;color:#fff;font-weight:700;box-shadow:0 6px 22px #0004;cursor:pointer}
       #awcTeamBtn .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;margin-right:7px}
       #awcTeamBtn.online .dot{background:#22c55e}
@@ -101,9 +101,18 @@
       .awcActivityTop{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
       .awcActivityTitle{font-weight:750}
       .awcActivityMeta{font-size:12px;color:#64748b;margin-top:4px}
+      .awcActivity{cursor:pointer}
+      .awcActivity:hover{background:#f8fafc}
+      .awcDetail{display:none;margin-top:12px;padding:12px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;cursor:default}
+      .awcDetail.open{display:block}
+      .awcDetailGrid{display:grid;grid-template-columns:minmax(130px,190px) 1fr;gap:7px 12px;font-size:14px}
+      .awcDetailKey{font-weight:700;color:#334155;word-break:break-word}
+      .awcDetailVal{white-space:pre-wrap;word-break:break-word}
+      .awcDetailSection{margin:10px 0 4px;font-weight:800;color:#0f172a}
+      .awcToggleHint{font-size:12px;color:#2563eb;margin-top:6px;font-weight:700}
       .awcCloudToolbar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}
       @media(max-width:600px){
-        #awcTeamBtn{right:9px;bottom:9px;padding:10px 13px}
+        #awcTeamBtn{right:9px;top:74px;padding:10px 13px}
         .awcCloudCard{padding:14px;border-radius:14px}
       }`;
     document.head.appendChild(style);
@@ -211,13 +220,61 @@
     } catch (_) { return value || ''; }
   }
 
+  function labelKey(key) {
+    const labels = {
+      date:'Datum', time:'Tijd', timestamp:'Tijdstip', savedAt:'Opgeslagen op', user:'Medewerker',
+      name:'Naam', email:'E-mail', location:'Locatie', room:'Ruimte', order:'Order', orderNo:'Ordernummer',
+      orderNumber:'Ordernummer', shipment:'Zending', shipmentNumber:'Zendingnummer', code:'Zendingnummer',
+      status:'Status', note:'Opmerking', notes:'Opmerkingen', remark:'Opmerking', remarks:'Opmerkingen',
+      type:'Type', amount:'Aantal', quantity:'Aantal', weight:'Gewicht', net:'Netto', gross:'Bruto',
+      length:'Lengte', width:'Breedte', height:'Hoogte', items:'Zendingen / regels'
+    };
+    if (labels[key]) return labels[key];
+    return String(key).replace(/_/g,' ').replace(/([a-z])([A-Z])/g,'$1 $2').replace(/^./,c=>c.toUpperCase());
+  }
+
+  function scalar(value) {
+    if (value === null || value === undefined || value === '') return '-';
+    if (typeof value === 'boolean') return value ? 'Ja' : 'Nee';
+    return String(value);
+  }
+
+  function renderObject(obj, level = 0) {
+    if (obj === null || obj === undefined) return '<div class="awcDetailVal">-</div>';
+    if (Array.isArray(obj)) {
+      if (!obj.length) return '<div class="awcDetailVal">Geen regels</div>';
+      return obj.map((item, i) => {
+        if (item && typeof item === 'object') {
+          return `<div class="awcDetailSection">Regel ${i + 1}</div><div class="awcDetailGrid">${renderPairs(item, level + 1)}</div>`;
+        }
+        return `<div class="awcDetailVal">${esc(i + 1)}. ${esc(scalar(item))}</div>`;
+      }).join('');
+    }
+    if (typeof obj === 'object') return `<div class="awcDetailGrid">${renderPairs(obj, level + 1)}</div>`;
+    return `<div class="awcDetailVal">${esc(scalar(obj))}</div>`;
+  }
+
+  function renderPairs(obj, level = 0) {
+    return Object.entries(obj || {}).map(([key, value]) => {
+      if (value && typeof value === 'object') {
+        return `<div class="awcDetailKey">${esc(labelKey(key))}</div><div class="awcDetailVal">${renderObject(value, level + 1)}</div>`;
+      }
+      return `<div class="awcDetailKey">${esc(labelKey(key))}</div><div class="awcDetailVal">${esc(scalar(value))}</div>`;
+    }).join('');
+  }
+
+  function toggleActivityDetail(id) {
+    const el = document.getElementById(`awc-detail-${id}`);
+    if (el) el.classList.toggle('open');
+  }
+
   async function loadActivity() {
     if (!client || !currentUser) return;
     const list = document.getElementById('awcActivityList');
     list.innerHTML = '<div class="awcCloudMuted">Activiteit laden…</div>';
     const { data, error } = await client
       .from(ACTIVITY_TABLE)
-      .select('id,created_at,actor_email,module,action,description')
+      .select('id,created_at,actor_email,module,action,description,payload')
       .order('created_at', { ascending: false })
       .limit(100);
 
@@ -230,12 +287,16 @@
       return;
     }
     list.innerHTML = data.map(row => `
-      <div class="awcActivity">
+      <div class="awcActivity" onclick="window.awcToggleActivityDetail('${row.id}')">
         <div class="awcActivityTop">
           <div class="awcActivityTitle">${esc(row.description || (moduleNames[row.module] || row.module))}</div>
           <div class="awcCloudMuted">${esc(fmtTime(row.created_at))}</div>
         </div>
         <div class="awcActivityMeta">${esc(row.actor_email)} · ${esc(moduleNames[row.module] || row.module)} · ${esc(row.action)}</div>
+        <div class="awcToggleHint">Tik om volledige registratie te bekijken</div>
+        <div id="awc-detail-${row.id}" class="awcDetail" onclick="event.stopPropagation()">
+          ${renderObject(row.payload || {})}
+        </div>
       </div>`).join('');
   }
 
@@ -272,8 +333,11 @@
     });
 
     wrap('saveScans', () => {
-      const items = Array.isArray(window.scanItems) ? window.scanItems : [];
-      cloudLog('scans', 'lijst opgeslagen', `Openstaande zendingen: ${items.length} zending(en)`, { count: items.length });
+      let report = null;
+      try { report = typeof window.currentScanReport === 'function' ? window.currentScanReport() : null; } catch (_) {}
+      const items = report?.items || (Array.isArray(window.scanItems) ? window.scanItems : []);
+      const payload = report || { items: items.map(x => ({...x})) };
+      cloudLog('scans', 'lijst opgeslagen', `Openstaande zendingen: ${items.length} zending(en)`, payload);
     });
 
     wrap('addScan', value => {
@@ -296,6 +360,8 @@
       cloudLog('scans', 'statussen gewijzigd', `Meerdere zendingen gewijzigd naar ${status}`, { status });
     });
   }
+
+  window.awcToggleActivityDetail = toggleActivityDetail;
 
   async function initCloud() {
     makeUi();
