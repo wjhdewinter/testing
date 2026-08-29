@@ -19,6 +19,18 @@
   let activityDays = 1;
   let activityModule = '';
 
+  const _awcLsRemove = localStorage.removeItem.bind(localStorage);
+  const _awcLsSet = localStorage.setItem.bind(localStorage);
+  localStorage.removeItem = function(key) {
+    _awcLsRemove(key);
+    try {
+      const prefix = appPrefix();
+      const module = HISTORY_MODULES.find(m => key === prefix + m);
+      if (module) setTimeout(() => reconcileModuleAfterLocalChange(module), 0);
+    } catch (_) {}
+  };
+
+
   const moduleNames = {
     pallets: 'Wegen / pallets',
     personnel: 'Personeel',
@@ -119,7 +131,7 @@
       .awcCloudToolbar{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}
       .awcDeleteActivity{border:0;border-radius:8px;padding:6px 9px;background:#fee2e2;color:#991b1b;font-weight:800;cursor:pointer;font-size:12px}
       .awcRetention{margin:8px 0 12px;padding:9px 11px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;color:#1e3a8a;font-size:13px}
-      .awcTeamFilters{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin:0 0 12px}.awcFilterBtn,.awcModuleFilter{border:1px solid #cbd5e1;background:white;border-radius:9px;padding:8px 10px;font-weight:700}.awcFilterBtn.active{background:#0f172a;color:white}.awcActivityBadge{display:inline-block;border-radius:999px;padding:3px 7px;font-size:11px;font-weight:800;margin-right:5px}.awcBadgeNew{background:#dcfce7;color:#166534}.awcBadgeChange{background:#dbeafe;color:#1e40af}.awcBadgeDelete{background:#fee2e2;color:#991b1b}
+      .awcTeamFilters{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin:0 0 12px}.awcFilterBtn,.awcModuleFilter{border:1px solid #cbd5e1;background:white;border-radius:9px;padding:8px 10px;font-weight:700}.awcFilterBtn.active{background:#0f172a;color:white}.awcTrashItem{border:1px solid #e2e8f0;border-radius:12px;padding:11px;margin:8px 0;background:#fff}.awcTrashTop{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.awcTrashActions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}.awcRestoreBtn,.awcPermanentBtn{border:0;border-radius:8px;padding:7px 10px;font-weight:800;cursor:pointer}.awcRestoreBtn{background:#dcfce7;color:#166534}.awcPermanentBtn{background:#fee2e2;color:#991b1b}.awcActivityBadge{display:inline-block;border-radius:999px;padding:3px 7px;font-size:11px;font-weight:800;margin-right:5px}.awcBadgeNew{background:#dcfce7;color:#166534}.awcBadgeChange{background:#dbeafe;color:#1e40af}.awcBadgeDelete{background:#fee2e2;color:#991b1b}
       @media(max-width:600px){
         #awcTeamBtn{right:9px;top:74px;padding:10px 13px}
         .awcCloudCard{padding:14px;border-radius:14px}
@@ -150,6 +162,7 @@
           </div>
           <div class="awcCloudToolbar">
             <button id="awcTeamRefresh" class="awcCloudAction" type="button">Vernieuwen</button>
+            <button id="awcTrashBtn" class="awcCloudAction" type="button" style="display:none">Prullenbak</button>
             <button id="awcTeamClear" class="awcCloudAction" type="button" style="display:none;background:#b91c1c">Teamlog wissen</button>
             <button id="awcTeamLogout" class="awcCloudAction" type="button">Uitloggen</button>
           </div>
@@ -171,6 +184,10 @@
               <option value="manco">Manco</option>
             </select>
           </div>
+          <div id="awcTrashPanel" style="display:none">
+            <div class="awcRetention"><b>Prullenbak</b> — verwijderde registraties blijven 90 dagen beschikbaar voor beheerders. Daarna worden ze automatisch definitief verwijderd.</div>
+            <div id="awcTrashList"><div class="awcCloudMuted">Prullenbak laden…</div></div>
+          </div>
           <div id="awcActivityList"><div class="awcCloudMuted">Activiteit laden…</div></div>
         </div>
       </div>
@@ -182,11 +199,16 @@
         return;
       }
       document.getElementById('awcTeamModal').classList.add('open');
-      await loadActivity();
+      showTrash(false);
+    await loadActivity();
     });
     document.getElementById('awcTeamClose').addEventListener('click', () => document.getElementById('awcTeamModal').classList.remove('open'));
     document.getElementById('awcTeamRefresh').addEventListener('click', loadActivity);
     document.getElementById('awcTeamClear').addEventListener('click', clearActivityLog);
+    document.getElementById('awcTrashBtn').addEventListener('click', () => {
+      const panel = document.getElementById('awcTrashPanel');
+      showTrash(panel?.style.display === 'none');
+    });
     document.querySelectorAll('.awcFilterBtn').forEach(btn => btn.addEventListener('click', () => {
       activityDays = Number(btn.dataset.days || 1);
       document.querySelectorAll('.awcFilterBtn').forEach(b => b.classList.toggle('active', b === btn));
@@ -226,6 +248,8 @@
     memberRole = data?.role || '';
     const clearBtn = document.getElementById('awcTeamClear');
     if (clearBtn) clearBtn.style.display = memberRole === 'beheerder' ? '' : 'none';
+    const trashBtn = document.getElementById('awcTrashBtn');
+    if (trashBtn) trashBtn.style.display = memberRole === 'beheerder' ? '' : 'none';
     return !!data?.active;
   }
 
@@ -396,9 +420,49 @@
     try { if (typeof window.renderAll === 'function') window.renderAll(); } catch (_) {}
   }
 
+
+  async function reconcileLocalDeletions() {
+    if (!client || !currentUser) return;
+    for (const module of HISTORY_MODULES) {
+      const localRows = localHistory(module);
+      const localIds = new Set(localRows.map(r => String(r?.id ?? '')).filter(Boolean));
+      const { data, error } = await client.from(RECORDS_TABLE)
+        .select('record_id,actor_email,deleted_at')
+        .eq('module', module)
+        .is('deleted_at', null)
+        .limit(1000);
+      if (error) continue;
+
+      // Only treat absence as a deletion after this device has already completed
+      // its first cloud migration/hydration. This prevents a fresh device from
+      // deleting everybody else's records.
+      const readyFlag = appPrefix() + 'cloud_hydrated_v2_' + currentUser.id;
+      if (localStorage.getItem(readyFlag) !== '1') continue;
+
+      for (const row of (data || [])) {
+        if (!localIds.has(String(row.record_id))) {
+          await client.from(RECORDS_TABLE)
+            .update({
+              deleted_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              actor_email: (currentUser.email || '').toLowerCase()
+            })
+            .eq('module', module)
+            .eq('record_id', row.record_id);
+        }
+      }
+    }
+  }
+
+  function markHydrated() {
+    if (!currentUser) return;
+    localStorage.setItem(appPrefix() + 'cloud_hydrated_v2_' + currentUser.id, '1');
+  }
+
   async function hydrateCentralData() {
     for (const module of HISTORY_MODULES) await refreshCentralModule(module);
     await refreshCentralModule('scans');
+    markHydrated();
   }
 
   function subscribeCentralRecords() {
@@ -425,6 +489,88 @@
     const { error } = await client.from(ACTIVITY_TABLE).delete().lt('created_at', '9999-12-31T23:59:59Z');
     if (error) alert('Teamlog wissen mislukt: ' + error.message);
     else loadActivity();
+  }
+
+
+  function trashSummary(row) {
+    const d = row?.data || {};
+    return d.description || d.title || d.orderNo || d.orderNumber || d.shipment || d.code || d.location || d.user || ('Registratie ' + (row?.record_id || ''));
+  }
+
+  async function loadTrash() {
+    if (memberRole !== 'beheerder') return;
+    const list = document.getElementById('awcTrashList');
+    if (!list) return;
+    list.innerHTML = '<div class="awcCloudMuted">Prullenbak laden…</div>';
+    const { data, error } = await client.from(RECORDS_TABLE)
+      .select('module,record_id,data,deleted_at,actor_email,updated_at')
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false })
+      .limit(500);
+    if (error) {
+      list.innerHTML = `<div class="awcCloudMuted">${esc(error.message)}</div>`;
+      return;
+    }
+    if (!data?.length) {
+      list.innerHTML = '<div class="awcCloudMuted">De prullenbak is leeg.</div>';
+      return;
+    }
+    list.innerHTML = data.map(row => `
+      <div class="awcTrashItem">
+        <div class="awcTrashTop">
+          <div>
+            <div style="font-weight:900">${esc(moduleNames[row.module] || row.module)} · ${esc(trashSummary(row))}</div>
+            <div class="awcCloudMuted">Verwijderd: ${esc(fmtTime(row.deleted_at))} · ${esc(row.actor_email || '')}</div>
+          </div>
+        </div>
+        <div class="awcTrashActions">
+          <button class="awcRestoreBtn" type="button" onclick="window.awcRestoreRecord('${esc(row.module)}','${esc(row.record_id)}')">Herstellen</button>
+          <button class="awcPermanentBtn" type="button" onclick="window.awcPermanentlyDeleteRecord('${esc(row.module)}','${esc(row.record_id)}')">Definitief verwijderen</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function restoreRecord(module, recordId) {
+    if (memberRole !== 'beheerder') return;
+    const { error } = await client.from(RECORDS_TABLE)
+      .update({
+        deleted_at: null,
+        updated_at: new Date().toISOString(),
+        actor_email: (currentUser.email || '').toLowerCase()
+      })
+      .eq('module', module)
+      .eq('record_id', recordId);
+    if (error) return alert('Herstellen mislukt: ' + error.message);
+    await cloudLog(module, 'hersteld', 'Registratie hersteld uit de prullenbak', { id: recordId });
+    await refreshCentralModule(module);
+    await loadTrash();
+  }
+
+  async function permanentlyDeleteRecord(module, recordId) {
+    if (memberRole !== 'beheerder') return;
+    if (!confirm('Deze registratie definitief verwijderen? Dit kan daarna niet meer worden hersteld.')) return;
+    const { error } = await client.from(RECORDS_TABLE)
+      .delete()
+      .eq('module', module)
+      .eq('record_id', recordId)
+      .not('deleted_at', 'is', null);
+    if (error) return alert('Definitief verwijderen mislukt: ' + error.message);
+    await cloudLog(module, 'definitief verwijderd', 'Registratie definitief uit de prullenbak verwijderd', { id: recordId });
+    await loadTrash();
+  }
+
+  function showTrash(show=true) {
+    const panel = document.getElementById('awcTrashPanel');
+    const activity = document.getElementById('awcActivityList');
+    const filters = document.querySelector('.awcTeamFilters');
+    if (!panel || !activity) return;
+    panel.style.display = show ? '' : 'none';
+    activity.style.display = show ? 'none' : '';
+    if (filters) filters.style.display = show ? 'none' : 'flex';
+    const btn = document.getElementById('awcTrashBtn');
+    if (btn) btn.textContent = show ? 'Terug naar Team' : 'Prullenbak';
+    if (show) loadTrash();
   }
 
   async function loadActivity() {
@@ -489,6 +635,32 @@
     window[name] = wrapped;
   }
 
+
+  async function softDeleteCentral(module, recordId, description) {
+    if (!client || !currentUser || recordId == null) return;
+    const { error } = await client.from(RECORDS_TABLE)
+      .update({
+        deleted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        actor_email: (currentUser.email || '').toLowerCase()
+      })
+      .eq('module', module)
+      .eq('record_id', String(recordId));
+    if (!error) cloudLog(module, 'verwijderd', description || 'Registratie verwijderd', { id: recordId });
+  }
+
+  async function reconcileModuleAfterLocalChange(module) {
+    if (!client || !currentUser || !HISTORY_MODULES.includes(module)) return;
+    const localIds = new Set(localHistory(module).map(r => String(r?.id ?? '')).filter(Boolean));
+    const { data } = await client.from(RECORDS_TABLE)
+      .select('record_id').eq('module', module).is('deleted_at', null).limit(1000);
+    for (const row of (data || [])) {
+      if (!localIds.has(String(row.record_id))) {
+        await softDeleteCentral(module, row.record_id, 'Registratie verwijderd');
+      }
+    }
+  }
+
   function installHooks() {
     if (hooksInstalled) return;
     hooksInstalled = true;
@@ -535,10 +707,24 @@
       syncCurrentScans();
       cloudLog('scans', 'statussen gewijzigd', `Meerdere zendingen gewijzigd naar ${status}`, currentScansPayload());
     });
+
+    // De bestaande app gebruikt per module lokale historie. Na wissen vergelijken
+    // we die historie met Supabase en zetten ontbrekende centrale records op verwijderd.
+    ['deleteHist','removeHist','deleteHistory','removeHistory','clearHist','clearHistory'].forEach(fn => {
+      wrap(fn, (...args) => {
+        const module = typeof args[0] === 'string' ? args[0] : null;
+        setTimeout(() => {
+          if (module && HISTORY_MODULES.includes(module)) reconcileModuleAfterLocalChange(module);
+          else HISTORY_MODULES.forEach(m => reconcileModuleAfterLocalChange(m));
+        }, 0);
+      });
+    });
   }
 
   window.awcToggleActivityDetail = toggleActivityDetail;
   window.awcDeleteActivity = deleteActivity;
+  window.awcRestoreRecord = restoreRecord;
+  window.awcPermanentlyDeleteRecord = permanentlyDeleteRecord;
 
   async function initCloud() {
     makeUi();
