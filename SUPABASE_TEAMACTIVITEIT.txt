@@ -1,0 +1,15 @@
+AWC TOOL 2.0 - Supabase Teamactiviteit
+
+Toegevoegd:
+- Inloggen met hetzelfde Supabase-account als AWC Dockregistratie.
+- Nieuwe tabel: public.awc_tool_activity.
+- RLS: alleen actieve AWC-leden kunnen activiteit lezen; actieve beheerders/medewerkers kunnen logregels toevoegen.
+- Realtime: nieuwe activiteit verschijnt live in Teamactiviteit.
+- Bestaande localStorage-werking blijft behouden.
+- Centrale logging voor hoofdregistraties en openstaande-zendingenacties.
+- Foto/base64-gegevens worden NIET in de activiteitenlog opgeslagen.
+
+Bestanden:
+- awc-supabase-sync.js
+- index.html aangepast
+- service-worker.js/sw.js cacheversie aangepast
